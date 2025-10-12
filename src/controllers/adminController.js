@@ -4,9 +4,9 @@ const Institution = require('../models/Institution');
 const Student = require('../models/Student');
 const Setting = require('../models/Setting');
 
-// Admin credentials
-const ADMIN_EMAIL = "admin@portal.com";
-const ADMIN_PASSWORD = "Admin@123";
+// Admin credentials from environment variables
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@portal.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin@123";
 
 // Generate JWT token
 const generateToken = (id, type = 'admin') => {
