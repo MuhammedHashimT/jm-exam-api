@@ -201,8 +201,22 @@ Thiruvananthapuram, Kollam, Pathanamthitta, Alappuzha, Kottayam, Idukki, Ernakul
 3. **Environment Variables**
    Set in Vercel dashboard:
    - `MONGO_URI`: Your MongoDB connection string
-   - `JWT_SECRET`: Your JWT secret key
+   - `JWT_SECRET`: Your JWT secret key (min 32 characters)
+   - `ADMIN_EMAIL`: Admin login email
+   - `ADMIN_PASSWORD`: Admin login password
    - `NODE_ENV`: production
+
+## 🔒 Security
+
+⚠️ **Important Security Notes:**
+
+- **Never commit `.env` files** - they are in `.gitignore`
+- **Use strong JWT secrets** (minimum 32 characters)
+- **Change default admin credentials** in production
+- **Use different secrets** for different environments
+- **Rotate secrets regularly** (every 3-6 months)
+
+For detailed security guidelines, see [SECURITY.md](./SECURITY.md)
 
 ## 🔧 Configuration
 
