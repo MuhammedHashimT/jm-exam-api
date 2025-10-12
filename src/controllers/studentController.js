@@ -80,14 +80,12 @@ const addStudent = async (req, res) => {
       subject1: {
         code: selectedSubject1.code,
         name: selectedSubject1.name,
-        category: selectedSubject1.category,
-        examTime: selectedSubject1.examTime
+        category: selectedSubject1.category
       },
       subject2: {
         code: selectedSubject2.code,
         name: selectedSubject2.name,
-        category: selectedSubject2.category,
-        examTime: selectedSubject2.examTime
+        category: selectedSubject2.category
       }
     });
 

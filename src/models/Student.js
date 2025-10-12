@@ -39,10 +39,6 @@ const studentSchema = new mongoose.Schema({
       type: Number,
       required: [true, 'Subject 1 category is required'],
       enum: [1]
-    },
-    examTime: {
-      type: String,
-      required: [true, 'Subject 1 exam time is required']
     }
   },
   subject2: {
@@ -58,10 +54,6 @@ const studentSchema = new mongoose.Schema({
       type: Number,
       required: [true, 'Subject 2 category is required'],
       enum: [2]
-    },
-    examTime: {
-      type: String,
-      required: [true, 'Subject 2 exam time is required']
     }
   },
   createdAt: {

@@ -83,6 +83,8 @@ Get all subjects by section
 
 **Important**: Students must select one subject from the `subject1` category and one from the `subject2` category. All Subject 1 exams are scheduled for morning (09:00 AM - 11:00 AM) and all Subject 2 exams for afternoon (02:00 PM - 04:00 PM).
 
+**Note**: Exam times are not stored in the student database. Frontend can get exam times by matching the subject code with the constants data from `/api/subjects/:section`.
+
 ---
 
 ## Institution Endpoints
@@ -184,14 +186,12 @@ Add new student (Institution Protected)
       "subject1": {
         "code": "I-101",
         "name": "الفقه",
-        "category": 1,
-        "examTime": "09:00 AM - 11:00 AM"
+        "category": 1
       },
       "subject2": {
         "code": "I-201",
         "name": "الحديث",
-        "category": 2,
-        "examTime": "02:00 PM - 04:00 PM"
+        "category": 2
       }
       // ... other fields
     }
@@ -205,6 +205,11 @@ Add new student (Institution Protected)
 - المرحلة الإبتدائية: I250001 - I259999
 
 Registration numbers are auto-generated and unique across all sections.
+
+**Subject Categories & Exam Times:**
+- Category 1 (Subject 1): Morning session (09:00 AM - 11:00 AM)
+- Category 2 (Subject 2): Afternoon session (02:00 PM - 04:00 PM)
+- Exam times are retrieved from constants, not stored in database
 
 ### GET /api/students/list
 Get all students for institution (Institution Protected)
