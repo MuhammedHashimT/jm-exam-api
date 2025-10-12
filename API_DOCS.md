@@ -63,21 +63,25 @@ Get all subjects by section
   "success": true,
   "data": {
     "subjects": {
-      "المرحلة الإبتدائية": [
-        {"code": "I-101", "name": "الفقه"},
-        {"code": "I-102", "name": "التوحيد"},
-        {"code": "I-103", "name": "القرآن"},
-        {"code": "I-104", "name": "الحديث"},
-        {"code": "I-105", "name": "العقيدة"},
-        {"code": "I-106", "name": "السيرة النبوية"}
-      ],
-      // ... other sections with expanded subjects
+      "المرحلة الإبتدائية": {
+        "subject1": [
+          {"code": "I-101", "name": "الفقه", "category": 1, "examTime": "09:00 AM - 11:00 AM"},
+          {"code": "I-102", "name": "التوحيد", "category": 1, "examTime": "09:00 AM - 11:00 AM"},
+          {"code": "I-103", "name": "القرآن", "category": 1, "examTime": "09:00 AM - 11:00 AM"}
+        ],
+        "subject2": [
+          {"code": "I-201", "name": "الحديث", "category": 2, "examTime": "02:00 PM - 04:00 PM"},
+          {"code": "I-202", "name": "العقيدة", "category": 2, "examTime": "02:00 PM - 04:00 PM"},
+          {"code": "I-203", "name": "السيرة النبوية", "category": 2, "examTime": "02:00 PM - 04:00 PM"}
+        ]
+      }
+      // ... other sections
     }
   }
 }
 ```
 
-**Note**: Students can select any two different subjects from their section for subject1 and subject2. Each section now has 6 available subjects.
+**Important**: Students must select one subject from the `subject1` category and one from the `subject2` category. All Subject 1 exams are scheduled for morning (09:00 AM - 11:00 AM) and all Subject 2 exams for afternoon (02:00 PM - 04:00 PM).
 
 ---
 
@@ -160,8 +164,8 @@ Add new student (Institution Protected)
     "name": "الفقه"
   },
   "subject2": {
-    "code": "I-102",
-    "name": "التوحيد"
+    "code": "I-201",
+    "name": "الحديث"
   }
 }
 ```
@@ -177,6 +181,18 @@ Add new student (Institution Protected)
       "name": "Muhammad Ali",
       "place": "Calicut",
       "section": "المرحلة الإبتدائية",
+      "subject1": {
+        "code": "I-101",
+        "name": "الفقه",
+        "category": 1,
+        "examTime": "09:00 AM - 11:00 AM"
+      },
+      "subject2": {
+        "code": "I-201",
+        "name": "الحديث",
+        "category": 2,
+        "examTime": "02:00 PM - 04:00 PM"
+      }
       // ... other fields
     }
   }

@@ -29,17 +29,28 @@ const addStudent = async (req, res) => {
 
     // Validate subjects
     const availableSubjects = SUBJECTS[section];
-    const subject1Valid = availableSubjects.some(s => s.code === subject1.code && s.name === subject1.name);
-    const subject2Valid = availableSubjects.some(s => s.code === subject2.code && s.name === subject2.name);
+    const subject1Valid = availableSubjects.subject1.some(s => 
+      s.code === subject1.code && s.name === subject1.name && s.category === 1
+    );
+    const subject2Valid = availableSubjects.subject2.some(s => 
+      s.code === subject2.code && s.name === subject2.name && s.category === 2
+    );
 
-    if (!subject1Valid || !subject2Valid) {
+    if (!subject1Valid) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid subjects for the selected section'
+        message: 'Invalid subject1. Must select from Subject 1 category'
       });
     }
 
-    // Check if subjects are different
+    if (!subject2Valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subject2. Must select from Subject 2 category'
+      });
+    }
+
+    // Check if subjects are different (still good practice)
     if (subject1.code === subject2.code) {
       return res.status(400).json({
         success: false,
@@ -55,6 +66,10 @@ const addStudent = async (req, res) => {
     
     const registrationNumber = generateRegistrationNumber(section, lastStudent?.registrationNumber);
 
+    // Get full subject details from constants
+    const selectedSubject1 = availableSubjects.subject1.find(s => s.code === subject1.code);
+    const selectedSubject2 = availableSubjects.subject2.find(s => s.code === subject2.code);
+
     // Create new student
     const student = new Student({
       institutionId: req.user.id,
@@ -62,8 +77,18 @@ const addStudent = async (req, res) => {
       name,
       place,
       section,
-      subject1,
-      subject2
+      subject1: {
+        code: selectedSubject1.code,
+        name: selectedSubject1.name,
+        category: selectedSubject1.category,
+        examTime: selectedSubject1.examTime
+      },
+      subject2: {
+        code: selectedSubject2.code,
+        name: selectedSubject2.name,
+        category: selectedSubject2.category,
+        examTime: selectedSubject2.examTime
+      }
     });
 
     await student.save();
