@@ -434,12 +434,252 @@ const getSettings = async (req, res) => {
   }
 };
 
+// @desc    Edit institution
+// @route   PUT /api/admin/institutions/:id
+// @access  Private (Admin)
+const editInstitution = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Remove fields that shouldn't be updated directly
+    delete updateData._id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    const institution = await Institution.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!institution) {
+      return res.status(404).json({
+        success: false,
+        message: 'Institution not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Institution updated successfully',
+      data: { institution }
+    });
+  } catch (error) {
+    console.error('Edit institution error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update institution'
+    });
+  }
+};
+
+// @desc    Delete institution
+// @route   DELETE /api/admin/institutions/:id
+// @access  Private (Admin)
+const deleteInstitution = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if institution exists
+    const institution = await Institution.findById(id);
+    if (!institution) {
+      return res.status(404).json({
+        success: false,
+        message: 'Institution not found'
+      });
+    }
+
+    // Check if institution has students
+    const studentCount = await Student.countDocuments({ institutionId: id });
+    if (studentCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete institution. It has ${studentCount} registered students. Please delete or transfer students first.`
+      });
+    }
+
+    // Delete the institution
+    await Institution.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: 'Institution deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete institution error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete institution'
+    });
+  }
+};
+
+// @desc    Edit student
+// @route   PUT /api/admin/students/:id
+// @access  Private (Admin)
+const editStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Remove fields that shouldn't be updated directly
+    delete updateData._id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.registrationNumber; // Registration number should not be changed
+
+    const student = await Student.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('institutionId', 'name district');
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Student updated successfully',
+      data: { student }
+    });
+  } catch (error) {
+    console.error('Edit student error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update student'
+    });
+  }
+};
+
+// @desc    Delete student
+// @route   DELETE /api/admin/students/:id
+// @access  Private (Admin)
+const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if student exists
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Delete the student
+    await Student.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: 'Student deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete student'
+    });
+  }
+};
+
+// @desc    Get single institution
+// @route   GET /api/admin/institutions/:id
+// @access  Private (Admin)
+const getInstitutionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const institution = await Institution.findById(id);
+    if (!institution) {
+      return res.status(404).json({
+        success: false,
+        message: 'Institution not found'
+      });
+    }
+
+    // Get student count for this institution
+    const studentCount = await Student.countDocuments({ institutionId: id });
+
+    res.json({
+      success: true,
+      data: {
+        institution: {
+          ...institution.toObject(),
+          studentCount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get institution by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch institution'
+    });
+  }
+};
+
+// @desc    Get single student
+// @route   GET /api/admin/students/:id
+// @access  Private (Admin)
+const getStudentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const student = await Student.findById(id)
+      .populate('institutionId', 'name district place');
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { student }
+    });
+  } catch (error) {
+    console.error('Get student by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch student'
+    });
+  }
+};
+
 module.exports = {
   loginAdmin,
   getInstitutions,
+  getInstitutionById,
   verifyInstitution,
   declineInstitution,
+  editInstitution,
+  deleteInstitution,
   getAllStudents,
+  getStudentById,
+  editStudent,
+  deleteStudent,
   getDashboardStats,
   updateSettings,
   getSettings

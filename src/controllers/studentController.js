@@ -361,10 +361,202 @@ const getSubjectsForSection = async (req, res) => {
   }
 };
 
+// @desc    Get single student
+// @route   GET /api/students/:id
+// @access  Private (Institution)
+const getStudentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const student = await Student.findOne({
+      _id: id,
+      institutionId: req.user.id // Ensure institution can only access their own students
+    }).populate('institutionId', 'name place district');
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { student }
+    });
+  } catch (error) {
+    console.error('Get student by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch student'
+    });
+  }
+};
+
+// @desc    Edit student
+// @route   PUT /api/students/:id
+// @access  Private (Institution)
+const editStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, place, section, subject1, subject2 } = req.body;
+
+    // Find student and ensure it belongs to the current institution
+    const existingStudent = await Student.findOne({
+      _id: id,
+      institutionId: req.user.id
+    });
+
+    if (!existingStudent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Validate section if provided
+    if (section && !SUBJECTS[section]) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid section'
+      });
+    }
+
+    // If section is being changed or subjects are being changed, validate subjects
+    if (section || subject1 || subject2) {
+      const studentSection = section || existingStudent.section;
+      const availableSubjects = SUBJECTS[studentSection];
+
+      if (subject1) {
+        const subject1Valid = availableSubjects.subject1.some(s => 
+          s.code === subject1.code && s.name === subject1.name && s.category === 1
+        );
+        if (!subject1Valid) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid subject1. Must select from Subject 1 category'
+          });
+        }
+      }
+
+      if (subject2) {
+        const subject2Valid = availableSubjects.subject2.some(s => 
+          s.code === subject2.code && s.name === subject2.name && s.category === 2
+        );
+        if (!subject2Valid) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid subject2. Must select from Subject 2 category'
+          });
+        }
+      }
+
+      // Check if subjects are different
+      const finalSubject1 = subject1 || existingStudent.subject1;
+      const finalSubject2 = subject2 || existingStudent.subject2;
+      
+      if (finalSubject1.code === finalSubject2.code) {
+        return res.status(400).json({
+          success: false,
+          message: 'Subject 1 and Subject 2 must be different'
+        });
+      }
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (place) updateData.place = place;
+    if (section) updateData.section = section;
+    if (subject1) {
+      const availableSubjects = SUBJECTS[section || existingStudent.section];
+      const selectedSubject1 = availableSubjects.subject1.find(s => s.code === subject1.code);
+      updateData.subject1 = {
+        code: selectedSubject1.code,
+        name: selectedSubject1.name,
+        category: selectedSubject1.category
+      };
+    }
+    if (subject2) {
+      const availableSubjects = SUBJECTS[section || existingStudent.section];
+      const selectedSubject2 = availableSubjects.subject2.find(s => s.code === subject2.code);
+      updateData.subject2 = {
+        code: selectedSubject2.code,
+        name: selectedSubject2.name,
+        category: selectedSubject2.category
+      };
+    }
+
+    const student = await Student.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('institutionId', 'name place district');
+
+    res.json({
+      success: true,
+      message: 'Student updated successfully',
+      data: { student }
+    });
+  } catch (error) {
+    console.error('Edit student error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update student'
+    });
+  }
+};
+
+// @desc    Delete student
+// @route   DELETE /api/students/:id
+// @access  Private (Institution)
+const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find student and ensure it belongs to the current institution
+    const student = await Student.findOne({
+      _id: id,
+      institutionId: req.user.id
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Delete the student
+    await Student.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: 'Student deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete student'
+    });
+  }
+};
+
 module.exports = {
   addStudent,
   getStudents,
+  getStudentById,
   getStudentsBySection,
+  editStudent,
+  deleteStudent,
   exportStudentsPDF,
   exportStudentsExcel,
   getSubjectsForSection

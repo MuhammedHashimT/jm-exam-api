@@ -3,7 +3,10 @@ const router = express.Router();
 const {
   addStudent,
   getStudents,
+  getStudentById,
   getStudentsBySection,
+  editStudent,
+  deleteStudent,
   exportStudentsPDF,
   exportStudentsExcel,
   getSubjectsForSection
@@ -19,6 +22,21 @@ router.post('/add', institutionAuth, addStudent);
 // @desc    Get all students for institution
 // @access  Private (Institution)
 router.get('/list', institutionAuth, getStudents);
+
+// @route   GET /api/students/:id
+// @desc    Get single student
+// @access  Private (Institution)
+router.get('/:id', institutionAuth, getStudentById);
+
+// @route   PUT /api/students/:id
+// @desc    Edit student
+// @access  Private (Institution)
+router.put('/:id', institutionAuth, editStudent);
+
+// @route   DELETE /api/students/:id
+// @desc    Delete student
+// @access  Private (Institution)
+router.delete('/:id', institutionAuth, deleteStudent);
 
 // @route   GET /api/students/list/:section
 // @desc    Get students by section
