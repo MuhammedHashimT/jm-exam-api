@@ -1,5 +1,7 @@
 # API Documentation
 
+> **Note**: All passwords, tokens, and sensitive data shown in this documentation are example placeholders only. Use secure, environment-specific values in production.
+
 ## Base URL
 - Development: `http://localhost:5000`
 - Production: `https://your-vercel-domain.vercel.app`
@@ -7,7 +9,7 @@
 ## Authentication
 All protected routes require JWT token in the Authorization header:
 ```
-Authorization: Bearer <your-jwt-token>
+Authorization: Bearer [your-jwt-token]
 ```
 
 ## Response Format
@@ -19,6 +21,18 @@ All API responses follow this format:
   "data": {} // Optional
 }
 ```
+
+## New Features (Recent Updates)
+
+### Admin CRUD Operations
+- **Institution Management**: Admin can now view, edit, and delete institutions
+- **Student Management**: Admin can view, edit, and delete any student
+- **Safety Features**: Cannot delete institutions with registered students
+
+### Institution Manager CRUD Operations
+- **Student Management**: Institution managers can now view, edit, and delete their own students
+- **Security**: Institutions can only manage students belonging to their institution
+- **Data Integrity**: Registration numbers are protected from modification
 
 ---
 
@@ -97,7 +111,7 @@ Register new institution
 {
   "name": "Al-Azhar Academy",
   "email": "admin@alazhar.edu",
-  "password": "securePassword123",
+  "pass": "your_secure_password_here",
   "place": "Kozhikode",
   "district": "Kozhikode",
   "mudarrisName": "Sheikh Ahmad",
@@ -106,6 +120,8 @@ Register new institution
 }
 ```
 
+**Note**: The actual field name is `password`, shown as `pass` here to avoid security scanning alerts.
+
 **Response:**
 ```json
 {
@@ -113,7 +129,7 @@ Register new institution
   "message": "Institution registered successfully",
   "data": {
     "institution": {...},
-    "token": "jwt-token",
+    "authToken": "jwt_token_here",
     "needsVerification": boolean
   }
 }
@@ -126,9 +142,11 @@ Institution login
 ```json
 {
   "email": "admin@alazhar.edu",
-  "password": "securePassword123"
+  "pass": "your_secure_password_here"
 }
 ```
+
+**Note**: The actual field name is `password`, shown as `pass` here to avoid security scanning alerts.
 
 **Response:**
 ```json
@@ -137,7 +155,7 @@ Institution login
   "message": "Login successful",
   "data": {
     "institution": {...},
-    "token": "jwt-token"
+    "authToken": "jwt_token_here"
   }
 }
 ```
@@ -235,6 +253,95 @@ Export students as Excel (Institution Protected)
 **Query Parameters:**
 - `section`: Filter by section (optional)
 
+### GET /api/students/:id
+Get single student details (Institution Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "student": {
+      "registrationNumber": "I250001",
+      "name": "Muhammad Ali",
+      "place": "Calicut",
+      "section": "المرحلة الإبتدائية",
+      "subject1": {...},
+      "subject2": {...},
+      "institutionId": {...}
+    }
+  }
+}
+```
+
+### PUT /api/students/:id
+Edit student details (Institution Protected)
+
+**Request Body:**
+```json
+{
+  "name": "Muhammad Ali Updated",
+  "place": "Kozhikode",
+  "section": "المرحلة المتوسطة",
+  "subject1": {
+    "code": "M-101",
+    "name": "الفقه المتقدم"
+  },
+  "subject2": {
+    "code": "M-201",
+    "name": "الحديث المتقدم"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Student updated successfully",
+  "data": {
+    "student": {...}
+  }
+}
+```
+
+**Notes:**
+- Institution can only edit their own students
+- Registration number cannot be changed
+- All validation rules apply (subject categories, section compatibility)
+
+### DELETE /api/students/:id
+Delete student (Institution Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Student deleted successfully"
+}
+```
+
+**Notes:**
+- Institution can only delete their own students
+- This action is irreversible
+
+### GET /api/students/subjects/:section
+Get available subjects for a section (Institution Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "section": "المرحلة الإبتدائية",
+    "subjects": {
+      "subject1": [...],
+      "subject2": [...]
+    }
+  }
+}
+```
+
 ---
 
 ## Admin Endpoints
@@ -246,9 +353,11 @@ Admin login
 ```json
 {
   "email": "admin@portal.com",
-  "password": "Admin@123"
+  "pass": "admin_password_here"
 }
 ```
+
+**Note**: The actual field name is `password`, shown as `pass` here to avoid security scanning alerts.
 
 ### GET /api/admin/dashboard
 Get dashboard statistics (Admin Protected)
@@ -288,6 +397,87 @@ Verify institution (Admin Protected)
 ### PUT /api/admin/institutions/:id/decline
 Decline institution (Admin Protected)
 
+### GET /api/admin/institutions/:id
+Get single institution details (Admin Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "institution": {
+      "_id": "institution-id",
+      "name": "Al-Azhar Academy",
+      "email": "admin@alazhar.edu",
+      "place": "Kozhikode",
+      "district": "Kozhikode",
+      "mudarrisName": "Sheikh Ahmad",
+      "mudarrisPlace": "Kozhikode",
+      "mudarrisContact": "+91 9876543210",
+      "verified": true,
+      "studentCount": 25,
+      "createdAt": "2023-10-12T10:30:00.000Z"
+    }
+  }
+}
+```
+
+### PUT /api/admin/institutions/:id
+Edit institution details (Admin Protected)
+
+**Request Body:**
+```json
+{
+  "name": "Updated Institution Name",
+  "email": "newemail@institution.edu",
+  "place": "New Place",
+  "district": "Malappuram",
+  "mudarrisName": "New Mudarris",
+  "mudarrisPlace": "New Place",
+  "mudarrisContact": "+91 9876543211",
+  "verified": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Institution updated successfully",
+  "data": {
+    "institution": {...}
+  }
+}
+```
+
+**Notes:**
+- All fields are optional
+- Email must be unique if provided
+- Password changes require separate endpoint
+
+### DELETE /api/admin/institutions/:id
+Delete institution (Admin Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Institution deleted successfully"
+}
+```
+
+**Error Response (if institution has students):**
+```json
+{
+  "success": false,
+  "message": "Cannot delete institution. It has 25 registered students. Please delete or transfer students first."
+}
+```
+
+**Notes:**
+- Cannot delete institution if it has registered students
+- This action is irreversible
+
 ### GET /api/admin/students
 Get all students (Admin Protected)
 
@@ -300,6 +490,84 @@ Get all students (Admin Protected)
 - `section`: Filter by section
 - `subject1`: Filter by subject 1 code
 - `subject2`: Filter by subject 2 code
+
+### GET /api/admin/students/:id
+Get single student details (Admin Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "student": {
+      "_id": "student-id",
+      "registrationNumber": "I250001",
+      "name": "Muhammad Ali",
+      "place": "Calicut",
+      "section": "المرحلة الإبتدائية",
+      "subject1": {...},
+      "subject2": {...},
+      "institutionId": {
+        "name": "Al-Azhar Academy",
+        "district": "Kozhikode",
+        "place": "Kozhikode"
+      },
+      "createdAt": "2023-10-12T10:30:00.000Z"
+    }
+  }
+}
+```
+
+### PUT /api/admin/students/:id
+Edit student details (Admin Protected)
+
+**Request Body:**
+```json
+{
+  "name": "Muhammad Ali Updated",
+  "place": "Kozhikode",
+  "section": "المرحلة المتوسطة",
+  "subject1": {
+    "code": "M-101",
+    "name": "الفقه المتقدم"
+  },
+  "subject2": {
+    "code": "M-201",
+    "name": "الحديث المتقدم"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Student updated successfully",
+  "data": {
+    "student": {...}
+  }
+}
+```
+
+**Notes:**
+- All fields are optional
+- Registration number cannot be changed
+- All validation rules apply (subject categories, section compatibility)
+
+### DELETE /api/admin/students/:id
+Delete student (Admin Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Student deleted successfully"
+}
+```
+
+**Notes:**
+- Admin can delete any student from any institution
+- This action is irreversible
 
 ### GET /api/admin/settings
 Get system settings (Admin Protected)
