@@ -140,33 +140,84 @@ const addStudent = async (req, res) => {
       });
     }
 
-    // Generate unique registration number using atomic counter
-    const registrationNumber = await getNextRegistrationNumber(section);
-
     // Get full subject details from constants
     const selectedSubject1 = availableSubjects.subject1.find(s => s.code === subject1.code);
     const selectedSubject2 = availableSubjects.subject2.find(s => s.code === subject2.code);
 
-    // Create new student
-    const student = new Student({
-      institutionId: req.user.id,
-      registrationNumber,
-      name,
-      place,
-      section,
-      subject1: {
-        code: selectedSubject1.code,
-        name: selectedSubject1.name,
-        category: selectedSubject1.category
-      },
-      subject2: {
-        code: selectedSubject2.code,
-        name: selectedSubject2.name,
-        category: selectedSubject2.category
-      }
-    });
+    // Create new student with retry + counter reconciliation (handles counters out-of-sync)
+    let student;
+    const maxRetries = 20;
 
-    await student.save();
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const registrationNumber = await getNextRegistrationNumber(section);
+
+        // Create new student
+        student = new Student({
+          institutionId: req.user.id,
+          registrationNumber,
+          name,
+          place,
+          section,
+          subject1: {
+            code: selectedSubject1.code,
+            name: selectedSubject1.name,
+            category: selectedSubject1.category
+          },
+          subject2: {
+            code: selectedSubject2.code,
+            name: selectedSubject2.name,
+            category: selectedSubject2.category
+          }
+        });
+
+        await student.save();
+        break; // success
+
+      } catch (saveError) {
+        // Duplicate registration number -> counter is behind DB. Reconcile and retry.
+        if (saveError && saveError.code === 11000 && saveError.keyPattern?.registrationNumber) {
+          console.warn('Duplicate registration number detected, reconciling counter (attempt', attempt + 1, ')', saveError.keyValue);
+
+          try {
+            // Use aggregation to find the numeric maximum part of registrationNumber in this section
+            const agg = await Student.aggregate([
+              { $match: { section } },
+              { $project: { num: { $toInt: { $substr: ["$registrationNumber", 1, 6] } } } },
+              { $group: { _id: null, maxNum: { $max: "$num" } } }
+            ]).allowDiskUse(true);
+
+            if (agg && agg.length > 0 && agg[0].maxNum) {
+              const lastNumber = agg[0].maxNum;
+              const desiredSequence = lastNumber - REGISTRATION_CONFIG[section].start + 1;
+
+              if (desiredSequence > 0) {
+                // Ensure counter is at least desiredSequence so next increments move forward
+                await Counter.findOneAndUpdate(
+                  { _id: section },
+                  { $max: { sequence_value: desiredSequence } },
+                  { upsert: true }
+                );
+                console.log(`Reconciled counter for ${section} to at least ${desiredSequence}`);
+              }
+            }
+          } catch (reconError) {
+            console.error('Error during counter reconciliation:', reconError);
+          }
+
+          // small backoff before retry
+          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
+          continue;
+        }
+
+        // other errors -> rethrow
+        throw saveError;
+      }
+    }
+
+    if (!student) {
+      throw new Error('Unable to generate unique registration number after multiple attempts. Please try again.');
+    }
 
     // Populate institution details
     await student.populate('institutionId', 'name place district');
