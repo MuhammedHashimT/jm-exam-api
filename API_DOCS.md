@@ -9,7 +9,7 @@
 ## Authentication
 All protected routes require JWT token in the Authorization header:
 ```
-Authorization: Bearer [your-jwt-token]
+Authorization: Bearer [JWT_TOKEN]
 ```
 
 ## Response Format
@@ -111,7 +111,7 @@ Register new institution
 {
   "name": "Al-Azhar Academy",
   "email": "admin@alazhar.edu",
-  "pass": "your_secure_password_here",
+  "password": "example_password",
   "place": "Kozhikode",
   "district": "Kozhikode",
   "mudarrisName": "Sheikh Ahmad",
@@ -120,8 +120,6 @@ Register new institution
 }
 ```
 
-**Note**: The actual field name is `password`, shown as `pass` here to avoid security scanning alerts.
-
 **Response:**
 ```json
 {
@@ -129,7 +127,7 @@ Register new institution
   "message": "Institution registered successfully",
   "data": {
     "institution": {...},
-    "authToken": "jwt_token_here",
+    "token": "[JWT_TOKEN]",
     "needsVerification": boolean
   }
 }
@@ -142,11 +140,9 @@ Institution login
 ```json
 {
   "email": "admin@alazhar.edu",
-  "pass": "your_secure_password_here"
+  "password": "example_password"
 }
 ```
-
-**Note**: The actual field name is `password`, shown as `pass` here to avoid security scanning alerts.
 
 **Response:**
 ```json
@@ -155,7 +151,7 @@ Institution login
   "message": "Login successful",
   "data": {
     "institution": {...},
-    "authToken": "jwt_token_here"
+    "token": "[JWT_TOKEN]"
   }
 }
 ```
@@ -353,11 +349,9 @@ Admin login
 ```json
 {
   "email": "admin@portal.com",
-  "pass": "admin_password_here"
+  "password": "admin_password_here"
 }
 ```
-
-**Note**: The actual field name is `password`, shown as `pass` here to avoid security scanning alerts.
 
 ### GET /api/admin/dashboard
 Get dashboard statistics (Admin Protected)
