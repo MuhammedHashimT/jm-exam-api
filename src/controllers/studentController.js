@@ -4,6 +4,27 @@ const { SUBJECTS, generateRegistrationNumber } = require('../config/constants');
 const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
 
+// Utility function to get next available registration number with proper section-based logic
+const getNextRegistrationNumber = async (section) => {
+  try {
+    // Find the last student with the highest registration number for this specific section
+    // Sort by registrationNumber in descending order to get the highest number first
+    const lastStudent = await Student.findOne({ section })
+      .sort({ registrationNumber: -1 })
+      .select('registrationNumber')
+      .lean()
+      .exec();
+    
+    // Generate the next registration number based on the last student's number
+    const newRegNumber = generateRegistrationNumber(section, lastStudent?.registrationNumber);
+    
+    return newRegNumber;
+  } catch (error) {
+    console.error('Error generating registration number:', error);
+    throw new Error(`Failed to generate registration number for section ${section}: ${error.message}`);
+  }
+};
+
 // @desc    Add new student
 // @route   POST /api/students/add
 // @access  Private (Institution)
@@ -58,38 +79,55 @@ const addStudent = async (req, res) => {
       });
     }
 
-    // Generate registration number
-    // Find the last registration number for this section
-    const lastStudent = await Student.findOne({ section })
-      .sort({ registrationNumber: -1 })
-      .exec();
-    
-    const registrationNumber = generateRegistrationNumber(section, lastStudent?.registrationNumber);
-
     // Get full subject details from constants
     const selectedSubject1 = availableSubjects.subject1.find(s => s.code === subject1.code);
     const selectedSubject2 = availableSubjects.subject2.find(s => s.code === subject2.code);
 
-    // Create new student
-    const student = new Student({
-      institutionId: req.user.id,
-      registrationNumber,
-      name,
-      place,
-      section,
-      subject1: {
-        code: selectedSubject1.code,
-        name: selectedSubject1.name,
-        category: selectedSubject1.category
-      },
-      subject2: {
-        code: selectedSubject2.code,
-        name: selectedSubject2.name,
-        category: selectedSubject2.category
-      }
-    });
+    // Create new student with retry mechanism for registration number conflicts
+    let student;
+    const maxRetries = 5;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Generate registration number for this attempt
+        const registrationNumber = await getNextRegistrationNumber(section);
+        
+        // Create new student
+        student = new Student({
+          institutionId: req.user.id,
+          registrationNumber,
+          name,
+          place,
+          section,
+          subject1: {
+            code: selectedSubject1.code,
+            name: selectedSubject1.name,
+            category: selectedSubject1.category
+          },
+          subject2: {
+            code: selectedSubject2.code,
+            name: selectedSubject2.name,
+            category: selectedSubject2.category
+          }
+        });
 
-    await student.save();
+        await student.save();
+        break; // Success, exit retry loop
+        
+      } catch (saveError) {
+        if (saveError.code === 11000 && saveError.keyPattern?.registrationNumber) {
+          // Duplicate registration number, retry if we have attempts left
+          if (attempt === maxRetries - 1) {
+            throw new Error('Unable to generate unique registration number after multiple attempts. Please try again.');
+          }
+          // Wait a small random amount before retry
+          await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
+          continue;
+        }
+        // Different error, throw immediately
+        throw saveError;
+      }
+    }
 
     // Populate institution details
     await student.populate('institutionId', 'name place district');
@@ -101,6 +139,25 @@ const addStudent = async (req, res) => {
     });
   } catch (error) {
     console.error('Add student error:', error);
+    
+    // Handle specific error types
+    if (error.code === 11000) {
+      if (error.keyPattern?.registrationNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Registration number conflict. Please try again.'
+        });
+      }
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
     res.status(400).json({
       success: false,
       message: error.message || 'Failed to add student'

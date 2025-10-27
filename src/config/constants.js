@@ -560,42 +560,53 @@ const SUBJECTS = {
 
 const SECTIONS = ["المرحلة الإبتدائية", "المرحلة المتوسطة", "المرحلة العالية"];
 
-// Registration number ranges for each section
-const REGISTRATION_RANGES = {
-  "المرحلة العالية": { prefix: "A", start: 250001, end: 259999 },
-  "المرحلة المتوسطة": { prefix: "M", start: 250001, end: 259999 },
-  "المرحلة الإبتدائية": { prefix: "I", start: 250001, end: 259999 },
+// Registration number configuration for each section
+const REGISTRATION_CONFIG = {
+  "المرحلة العالية": { prefix: "A", start: 250001 },
+  "المرحلة المتوسطة": { prefix: "M", start: 250001 },
+  "المرحلة الإبتدائية": { prefix: "I", start: 250001 },
 };
 
 // Helper function to generate registration number
-const generateRegistrationNumber = (section, lastNumber = null) => {
-  const range = REGISTRATION_RANGES[section];
-  if (!range) {
-    throw new Error("Invalid section");
+const generateRegistrationNumber = (section, lastRegistrationNumber = null) => {
+  const config = REGISTRATION_CONFIG[section];
+  if (!config) {
+    throw new Error(`Invalid section: ${section}`);
   }
 
   let nextNumber;
-  if (lastNumber) {
-    // Extract number part from last registration number (e.g., A250001 -> 250001)
-    const numPart = parseInt(lastNumber.substring(1));
-    nextNumber = numPart + 1;
+  
+  if (lastRegistrationNumber) {
+    // Extract the numeric part from the last registration number
+    // Example: A250089 -> 250089, then add 1 to get 250090
+    const numericPart = lastRegistrationNumber.replace(/^[A-Z]/, '');
+    const lastNumber = parseInt(numericPart, 10);
+    
+    if (isNaN(lastNumber)) {
+      throw new Error(`Invalid last registration number format: ${lastRegistrationNumber}`);
+    }
+    
+    nextNumber = lastNumber + 1;
   } else {
-    nextNumber = range.start;
+    // First student in this section, start from the beginning
+    nextNumber = config.start;
   }
 
-  if (nextNumber > range.end) {
+  // Ensure the number is within valid range (250001-259999 for all sections)
+  if (nextNumber > 259999) {
     throw new Error(
-      `Registration number limit exceeded for section ${section}`
+      `Registration number limit exceeded for section ${section}. Maximum 10,000 students allowed per section.`
     );
   }
 
-  return `${range.prefix}${nextNumber}`;
+  // Format: Prefix + 6-digit number (e.g., A250001, M250001, I250001)
+  return `${config.prefix}${nextNumber.toString().padStart(6, '0')}`;
 };
 
 module.exports = {
   KERALA_DISTRICTS,
   SUBJECTS,
   SECTIONS,
-  REGISTRATION_RANGES,
+  REGISTRATION_CONFIG,
   generateRegistrationNumber,
 };

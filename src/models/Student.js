@@ -66,5 +66,6 @@ const studentSchema = new mongoose.Schema({
 studentSchema.index({ institutionId: 1, section: 1 });
 studentSchema.index({ 'subject1.code': 1, 'subject2.code': 1 });
 studentSchema.index({ registrationNumber: 1 }, { unique: true });
+studentSchema.index({ section: 1, registrationNumber: -1 }); // For efficient sorting when finding last registration number
 
 module.exports = mongoose.model('Student', studentSchema);
