@@ -1,24 +1,85 @@
 const Student = require('../models/Student');
 const Institution = require('../models/Institution');
-const { SUBJECTS, generateRegistrationNumber } = require('../config/constants');
+const Counter = require('../models/Counter');
+const { SUBJECTS, REGISTRATION_CONFIG } = require('../config/constants');
 const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
 
-// Utility function to get next available registration number with proper section-based logic
-const getNextRegistrationNumber = async (section) => {
+// Utility function to initialize counter based on existing students
+const initializeCounterForSection = async (section) => {
   try {
-    // Find the last student with the highest registration number for this specific section
-    // Sort by registrationNumber in descending order to get the highest number first
+    // Check if counter already exists
+    const existingCounter = await Counter.findById(section);
+    if (existingCounter) {
+      return; // Counter already initialized
+    }
+
+    console.log(`Initializing counter for section: ${section}`);
+    
+    // Find the highest registration number for this section
     const lastStudent = await Student.findOne({ section })
       .sort({ registrationNumber: -1 })
       .select('registrationNumber')
-      .lean()
-      .exec();
+      .lean();
     
-    // Generate the next registration number based on the last student's number
-    const newRegNumber = generateRegistrationNumber(section, lastStudent?.registrationNumber);
+    let sequenceValue = 0;
+    const config = REGISTRATION_CONFIG[section];
     
-    return newRegNumber;
+    if (lastStudent) {
+      // Extract numeric part from registration number (e.g., I250132 -> 250132)
+      const numericPart = lastStudent.registrationNumber.replace(/^[A-Z]/, '');
+      const lastNumber = parseInt(numericPart, 10);
+      
+      // Calculate how many students have been registered for this section
+      sequenceValue = lastNumber - config.start + 1;
+      
+      console.log(`Last registration number for ${section}: ${lastStudent.registrationNumber}, setting sequence to: ${sequenceValue}`);
+    }
+    
+    // Initialize the counter
+    await Counter.create({
+      _id: section,
+      sequence_value: sequenceValue
+    });
+    
+    console.log(`Counter initialized for ${section} with sequence_value: ${sequenceValue}`);
+  } catch (error) {
+    console.error(`Error initializing counter for ${section}:`, error);
+    // Don't throw error, let the registration number generation continue
+  }
+};
+
+// Utility function to get next available registration number using atomic counter
+const getNextRegistrationNumber = async (section) => {
+  try {
+    const config = REGISTRATION_CONFIG[section];
+    if (!config) {
+      throw new Error(`Invalid section: ${section}`);
+    }
+
+    // Initialize counter if it doesn't exist
+    await initializeCounterForSection(section);
+
+    // Use atomic findOneAndUpdate to get the next sequence number
+    const counter = await Counter.findOneAndUpdate(
+      { _id: section },
+      { $inc: { sequence_value: 1 } },
+      { new: true, upsert: true }
+    );
+
+    // Calculate the registration number
+    const registrationNumber = config.start + counter.sequence_value - 1;
+
+    // Check if we've exceeded the limit
+    if (registrationNumber > 259999) {
+      throw new Error(
+        `Registration number limit exceeded for section ${section}. Maximum 10,000 students allowed per section.`
+      );
+    }
+
+    // Format: Prefix + 6-digit number (e.g., A250001, M250001, I250001)
+    return `${config.prefix}${registrationNumber.toString().padStart(6, '0')}`;
+    
   } catch (error) {
     console.error('Error generating registration number:', error);
     throw new Error(`Failed to generate registration number for section ${section}: ${error.message}`);
@@ -79,55 +140,33 @@ const addStudent = async (req, res) => {
       });
     }
 
+    // Generate unique registration number using atomic counter
+    const registrationNumber = await getNextRegistrationNumber(section);
+
     // Get full subject details from constants
     const selectedSubject1 = availableSubjects.subject1.find(s => s.code === subject1.code);
     const selectedSubject2 = availableSubjects.subject2.find(s => s.code === subject2.code);
 
-    // Create new student with retry mechanism for registration number conflicts
-    let student;
-    const maxRetries = 5;
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        // Generate registration number for this attempt
-        const registrationNumber = await getNextRegistrationNumber(section);
-        
-        // Create new student
-        student = new Student({
-          institutionId: req.user.id,
-          registrationNumber,
-          name,
-          place,
-          section,
-          subject1: {
-            code: selectedSubject1.code,
-            name: selectedSubject1.name,
-            category: selectedSubject1.category
-          },
-          subject2: {
-            code: selectedSubject2.code,
-            name: selectedSubject2.name,
-            category: selectedSubject2.category
-          }
-        });
-
-        await student.save();
-        break; // Success, exit retry loop
-        
-      } catch (saveError) {
-        if (saveError.code === 11000 && saveError.keyPattern?.registrationNumber) {
-          // Duplicate registration number, retry if we have attempts left
-          if (attempt === maxRetries - 1) {
-            throw new Error('Unable to generate unique registration number after multiple attempts. Please try again.');
-          }
-          // Wait a small random amount before retry
-          await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
-          continue;
-        }
-        // Different error, throw immediately
-        throw saveError;
+    // Create new student
+    const student = new Student({
+      institutionId: req.user.id,
+      registrationNumber,
+      name,
+      place,
+      section,
+      subject1: {
+        code: selectedSubject1.code,
+        name: selectedSubject1.name,
+        category: selectedSubject1.category
+      },
+      subject2: {
+        code: selectedSubject2.code,
+        name: selectedSubject2.name,
+        category: selectedSubject2.category
       }
-    }
+    });
+
+    await student.save();
 
     // Populate institution details
     await student.populate('institutionId', 'name place district');
