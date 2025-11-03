@@ -214,7 +214,8 @@ const getAllStudents = async (req, res) => {
       page = 1,
       limit = 10,
       search,
-      institution,
+      institutionId,
+      institutionName,
       district,
       section,
       subject1,
@@ -247,6 +248,18 @@ const getAllStudents = async (req, res) => {
       matchStage['subject2.code'] = subject2;
     }
 
+    // Filter by institution ID if provided
+    if (institutionId) {
+      try {
+        matchStage.institutionId = require('mongoose').Types.ObjectId(institutionId);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid institution ID format'
+        });
+      }
+    }
+
     if (Object.keys(matchStage).length > 0) {
       pipeline.push({ $match: matchStage });
     }
@@ -265,11 +278,11 @@ const getAllStudents = async (req, res) => {
       $unwind: '$institution'
     });
 
-    // Filter by institution or district after population
+    // Filter by institution name or district after population
     const postMatchStage = {};
 
-    if (institution) {
-      postMatchStage['institution.name'] = { $regex: institution, $options: 'i' };
+    if (institutionName) {
+      postMatchStage['institution.name'] = { $regex: institutionName, $options: 'i' };
     }
 
     if (district) {
@@ -447,11 +460,8 @@ const editInstitution = async (req, res) => {
     delete updateData.createdAt;
     delete updateData.updatedAt;
 
-    const institution = await Institution.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    // Find the institution first
+    const institution = await Institution.findById(id).select('+password');
 
     if (!institution) {
       return res.status(404).json({
@@ -460,9 +470,34 @@ const editInstitution = async (req, res) => {
       });
     }
 
+    // Handle password update separately if provided
+    let passwordUpdated = false;
+    if (updateData.password) {
+      if (updateData.password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters long'
+        });
+      }
+      institution.password = updateData.password;
+      passwordUpdated = true;
+      delete updateData.password; // Remove from updateData to handle separately
+    }
+
+    // Update other fields
+    Object.keys(updateData).forEach(key => {
+      institution[key] = updateData[key];
+    });
+
+    // Save the institution (this will trigger password hashing if password was changed)
+    await institution.save();
+
+    // Remove password from response
+    institution.password = undefined;
+
     res.json({
       success: true,
-      message: 'Institution updated successfully',
+      message: passwordUpdated ? 'Institution and password updated successfully' : 'Institution updated successfully',
       data: { institution }
     });
   } catch (error) {

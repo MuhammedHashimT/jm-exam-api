@@ -4,12 +4,29 @@ A Node.js + Express backend for an Exam Registration Portal with MongoDB integra
 
 ## 🚀 Features
 
-- **Institution Management**: Registration, login, profile management
-- **Student Management**: Add students, manage by sections, export data
-- **Admin Panel**: Institution verification, system settings, dashboard
+- **Institution Management**: Registration, login, profile management with password change
+- **Student Management**: Add, edit, delete students, manage by sections, export data
+- **Admin Panel**: Institution verification, system settings, dashboard, CRUD operations
+- **Advanced Filtering**: Filter students by institution, subjects, district, and more
+- **Password Management**: Self-service password change for institutions, admin password reset
 - **Authentication**: JWT-based auth for institutions and admin
 - **Data Export**: PDF and Excel export functionality
 - **Verification System**: Configurable institution verification workflow
+
+## 🆕 Recent Updates (November 2025)
+
+### Password Management
+- ✨ Institutions can now change their own passwords
+- ✨ Admin can reset institution passwords
+- 🔒 Secure password verification and hashing
+
+### Enhanced Student Filtering
+- 🔍 Filter by institution ID or name
+- 🔍 Filter by subject combinations
+- 🔍 Combined filtering for precise queries
+- ⚡ Optimized query performance
+
+**See [NEW_FEATURES.md](./NEW_FEATURES.md) for detailed documentation.**
 
 ## 🏗️ Project Structure
 
@@ -254,10 +271,25 @@ Update allowed origins in `server.js` for production deployment.
 
 - Password hashing with bcrypt
 - JWT authentication with expiration
+- Self-service password change with verification
+- Admin password reset capability
 - Input validation and sanitization
 - CORS protection
 - Rate limiting ready (can be added)
 - SQL injection protection (MongoDB)
+
+## 📚 Documentation
+
+- **[API_DOCS.md](./API_DOCS.md)** - Complete API endpoint documentation
+- **[NEW_FEATURES.md](./NEW_FEATURES.md)** - Latest features guide (Nov 2025)
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and changes
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment instructions
+- **[SECURITY.md](./SECURITY.md)** - Security guidelines
+
+### Quick Links
+- Password Management Guide: [NEW_FEATURES.md#password-management](./NEW_FEATURES.md#-password-management)
+- Student Filtering Guide: [NEW_FEATURES.md#enhanced-student-filtering](./NEW_FEATURES.md#-enhanced-student-filtering-for-admin)
+- API Reference: [API_DOCS.md](./API_DOCS.md)
 
 ## 🧪 Testing
 

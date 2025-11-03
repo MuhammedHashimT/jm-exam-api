@@ -175,15 +175,44 @@ const updateProfile = async (req, res) => {
       district,
       mudarrisName,
       mudarrisPlace,
-      mudarrisContact
+      mudarrisContact,
+      currentPassword,
+      newPassword
     } = req.body;
 
-    const institution = await Institution.findById(req.user.id);
+    const institution = await Institution.findById(req.user.id).select('+password');
     if (!institution) {
       return res.status(404).json({
         success: false,
         message: 'Institution not found'
       });
+    }
+
+    // If password change is requested, verify current password
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is required to change password'
+        });
+      }
+
+      const isPasswordValid = await institution.comparePassword(currentPassword);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Current password is incorrect'
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be at least 6 characters long'
+        });
+      }
+
+      institution.password = newPassword;
     }
 
     // Update fields if provided
@@ -196,9 +225,12 @@ const updateProfile = async (req, res) => {
 
     await institution.save();
 
+    // Remove password from response
+    institution.password = undefined;
+
     res.json({
       success: true,
-      message: 'Profile updated successfully',
+      message: newPassword ? 'Profile and password updated successfully' : 'Profile updated successfully',
       data: { institution }
     });
   } catch (error) {
