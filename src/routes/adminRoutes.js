@@ -6,6 +6,8 @@ const {
   getInstitutionById,
   verifyInstitution,
   declineInstitution,
+  bulkApproveInstitutions,
+  bulkDeclineInstitutions,
   editInstitution,
   deleteInstitution,
   getAllStudents,
@@ -32,6 +34,16 @@ router.get('/dashboard', adminAuth, getDashboardStats);
 // @desc    Get all institutions
 // @access  Private (Admin)
 router.get('/institutions', adminAuth, getInstitutions);
+
+// @route   PUT /api/admin/institutions/bulk/approve
+// @desc    Bulk approve institutions
+// @access  Private (Admin)
+router.put('/institutions/bulk/approve', adminAuth, bulkApproveInstitutions);
+
+// @route   PUT /api/admin/institutions/bulk/decline
+// @desc    Bulk decline institutions
+// @access  Private (Admin)
+router.put('/institutions/bulk/decline', adminAuth, bulkDeclineInstitutions);
 
 // @route   GET /api/admin/institutions/:id
 // @desc    Get single institution

@@ -205,6 +205,104 @@ const declineInstitution = async (req, res) => {
   }
 };
 
+// @desc    Bulk approve institutions
+// @route   PUT /api/admin/institutions/bulk/approve
+// @access  Private (Admin)
+const bulkApproveInstitutions = async (req, res) => {
+  try {
+    const { institutionIds } = req.body;
+
+    // Validate input
+    if (!institutionIds || !Array.isArray(institutionIds) || institutionIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Institution IDs array is required'
+      });
+    }
+
+    // Validate all IDs are valid MongoDB ObjectIds
+    const mongoose = require('mongoose');
+    const invalidIds = institutionIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid institution ID(s) provided',
+        invalidIds
+      });
+    }
+
+    // Update all institutions
+    const result = await Institution.updateMany(
+      { _id: { $in: institutionIds } },
+      { $set: { verified: true } }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} institution(s) approved successfully`,
+      data: {
+        matched: result.matchedCount,
+        modified: result.modifiedCount
+      }
+    });
+  } catch (error) {
+    console.error('Bulk approve institutions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve institutions'
+    });
+  }
+};
+
+// @desc    Bulk decline institutions
+// @route   PUT /api/admin/institutions/bulk/decline
+// @access  Private (Admin)
+const bulkDeclineInstitutions = async (req, res) => {
+  try {
+    const { institutionIds } = req.body;
+
+    // Validate input
+    if (!institutionIds || !Array.isArray(institutionIds) || institutionIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Institution IDs array is required'
+      });
+    }
+
+    // Validate all IDs are valid MongoDB ObjectIds
+    const mongoose = require('mongoose');
+    const invalidIds = institutionIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid institution ID(s) provided',
+        invalidIds
+      });
+    }
+
+    // Update all institutions
+    const result = await Institution.updateMany(
+      { _id: { $in: institutionIds } },
+      { $set: { verified: false } }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} institution(s) declined successfully`,
+      data: {
+        matched: result.matchedCount,
+        modified: result.modifiedCount
+      }
+    });
+  } catch (error) {
+    console.error('Bulk decline institutions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to decline institutions'
+    });
+  }
+};
+
 // @desc    Get all students
 // @route   GET /api/admin/students
 // @access  Private (Admin)
@@ -709,6 +807,8 @@ module.exports = {
   getInstitutionById,
   verifyInstitution,
   declineInstitution,
+  bulkApproveInstitutions,
+  bulkDeclineInstitutions,
   editInstitution,
   deleteInstitution,
   getAllStudents,

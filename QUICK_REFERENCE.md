@@ -59,6 +59,64 @@ GET /api/admin/students?institutionId=507f...&section=المرحلة الإبت�
 
 ---
 
+## 🏛️ Bulk Institution Operations (Admin)
+
+### Bulk Approve Institutions
+```bash
+PUT /api/admin/institutions/bulk/approve
+Authorization: Bearer {ADMIN_TOKEN}
+
+{
+  "institutionIds": [
+    "507f1f77bcf86cd799439011",
+    "507f1f77bcf86cd799439012",
+    "507f1f77bcf86cd799439013"
+  ]
+}
+
+Response:
+{
+  "success": true,
+  "message": "3 institution(s) approved successfully",
+  "data": {
+    "matched": 3,
+    "modified": 3
+  }
+}
+```
+
+### Bulk Decline Institutions
+```bash
+PUT /api/admin/institutions/bulk/decline
+Authorization: Bearer {ADMIN_TOKEN}
+
+{
+  "institutionIds": [
+    "507f1f77bcf86cd799439011",
+    "507f1f77bcf86cd799439012"
+  ]
+}
+
+Response:
+{
+  "success": true,
+  "message": "2 institution(s) declined successfully",
+  "data": {
+    "matched": 2,
+    "modified": 2
+  }
+}
+```
+
+### Bulk Operation Notes
+- ✅ Validates all IDs before processing
+- ✅ Returns count of matched and modified documents
+- ✅ Provides detailed error info for invalid IDs
+- ⚡ More efficient than individual approve/decline calls
+- 🔒 Requires admin authentication
+
+---
+
 ## 📋 Common Query Parameters
 
 | Parameter | Type | Description | Example |
@@ -247,4 +305,4 @@ Kannur, Kasaragod
 
 ---
 
-**Last Updated:** November 3, 2025
+**Last Updated:** November 12, 2025

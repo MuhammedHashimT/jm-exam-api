@@ -391,6 +391,86 @@ Verify institution (Admin Protected)
 ### PUT /api/admin/institutions/:id/decline
 Decline institution (Admin Protected)
 
+### PUT /api/admin/institutions/bulk/approve
+Bulk approve institutions (Admin Protected)
+
+**Request Body:**
+```json
+{
+  "institutionIds": [
+    "institution-id-1",
+    "institution-id-2",
+    "institution-id-3"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "3 institution(s) approved successfully",
+  "data": {
+    "matched": 3,
+    "modified": 3
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "Institution IDs array is required"
+}
+```
+
+**Notes:**
+- Validates all institution IDs before processing
+- Returns count of matched and modified documents
+- `matched`: Number of institutions found
+- `modified`: Number of institutions actually updated
+
+### PUT /api/admin/institutions/bulk/decline
+Bulk decline institutions (Admin Protected)
+
+**Request Body:**
+```json
+{
+  "institutionIds": [
+    "institution-id-1",
+    "institution-id-2",
+    "institution-id-3"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "3 institution(s) declined successfully",
+  "data": {
+    "matched": 3,
+    "modified": 3
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "Invalid institution ID(s) provided",
+  "invalidIds": ["invalid-id-1"]
+}
+```
+
+**Notes:**
+- Validates all institution IDs before processing
+- Returns count of matched and modified documents
+- Provides detailed error information for invalid IDs
+
 ### GET /api/admin/institutions/:id
 Get single institution details (Admin Protected)
 
