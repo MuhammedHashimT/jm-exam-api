@@ -602,6 +602,80 @@ const getNextRegistrationNumber = async (section) => {
   }
 };
 
+// @desc    Get institution statistics with student counts
+// @route   GET /api/admin/institutions/stats
+// @access  Private (Admin)
+const getInstitutionStats = async (req, res) => {
+  try {
+    // Get all institutions
+    const institutions = await Institution.find().lean();
+
+    // For each institution, get total students count and counts per subject
+    const statsData = await Promise.all(
+      institutions.map(async (institution) => {
+        // Get total students for this institution
+        const totalStudents = await Student.countDocuments({ institutionId: institution._id });
+
+        // Aggregate student counts by subject code (both subject1 and subject2)
+        const subjectCounts = await Student.aggregate([
+          { $match: { institutionId: institution._id } },
+          {
+            $facet: {
+              subject1Counts: [
+                { $group: { _id: '$subject1.code', name: { $first: '$subject1.name' }, count: { $sum: 1 } } },
+              ],
+              subject2Counts: [
+                { $group: { _id: '$subject2.code', name: { $first: '$subject2.name' }, count: { $sum: 1 } } },
+              ],
+            },
+          },
+        ]);
+
+        // Merge subject1 and subject2 counts, then aggregate by code
+        const subjectMap = {};
+        if (subjectCounts[0]?.subject1Counts) {
+          subjectCounts[0].subject1Counts.forEach((item) => {
+            if (!subjectMap[item._id]) {
+              subjectMap[item._id] = { subjectCode: item._id, name: item.name, count: 0 };
+            }
+            subjectMap[item._id].count += item.count;
+          });
+        }
+        if (subjectCounts[0]?.subject2Counts) {
+          subjectCounts[0].subject2Counts.forEach((item) => {
+            if (!subjectMap[item._id]) {
+              subjectMap[item._id] = { subjectCode: item._id, name: item.name, count: 0 };
+            }
+            subjectMap[item._id].count += item.count;
+          });
+        }
+
+        // Filter to only show subjects with count > 0 and sort by count descending
+        const counts = Object.values(subjectMap)
+          .filter((item) => item.count > 0)
+          .sort((a, b) => b.count - a.count);
+
+        return {
+          institution,
+          totalStudents,
+          counts,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: statsData,
+    });
+  } catch (error) {
+    console.error('Get institution stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch institution statistics',
+    });
+  }
+};
+
 // @desc    Admin: Add new student to a specific institution
 // @route   POST /api/admin/students/add
 // @access  Private (Admin)
@@ -1008,5 +1082,6 @@ module.exports = {
   getDashboardStats,
   updateSettings,
   getSettings,
-  addStudentAdmin
+  addStudentAdmin,
+  getInstitutionStats
 };

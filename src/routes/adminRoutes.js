@@ -17,7 +17,8 @@ const {
   getDashboardStats,
   updateSettings,
   getSettings,
-  addStudentAdmin
+  addStudentAdmin,
+  getInstitutionStats
 } = require('../controllers/adminController');
 const { adminAuth } = require('../middleware/authMiddleware');
 
@@ -30,6 +31,11 @@ router.post('/login', loginAdmin);
 // @desc    Get dashboard statistics
 // @access  Private (Admin)
 router.get('/dashboard', adminAuth, getDashboardStats);
+
+// @route   GET /api/admin/institutions/stats
+// @desc    Get institution statistics with student counts
+// @access  Private (Admin)
+router.get('/institutions/stats', adminAuth, getInstitutionStats);
 
 // @route   GET /api/admin/institutions
 // @desc    Get all institutions
