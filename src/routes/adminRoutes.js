@@ -16,7 +16,8 @@ const {
   deleteStudent,
   getDashboardStats,
   updateSettings,
-  getSettings
+  getSettings,
+  addStudentAdmin
 } = require('../controllers/adminController');
 const { adminAuth } = require('../middleware/authMiddleware');
 
@@ -74,6 +75,11 @@ router.put('/institutions/:id/decline', adminAuth, declineInstitution);
 // @desc    Get all students
 // @access  Private (Admin)
 router.get('/students', adminAuth, getAllStudents);
+
+// @route   POST /api/admin/students/add
+// @desc    Add a new student for a specific institution
+// @access  Private (Admin)
+router.post('/students/add', adminAuth, addStudentAdmin);
 
 // @route   GET /api/admin/students/:id
 // @desc    Get single student

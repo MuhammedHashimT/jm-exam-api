@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const Institution = require('../models/Institution');
 const Student = require('../models/Student');
 const Setting = require('../models/Setting');
+const Counter = require('../models/Counter');
+const { SUBJECTS, REGISTRATION_CONFIG } = require('../config/constants');
 
 // Admin credentials from environment variables
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@portal.com";
@@ -545,6 +547,194 @@ const getSettings = async (req, res) => {
   }
 };
 
+// Utility: initialize counter based on existing students for a section
+const initializeCounterForSection = async (section) => {
+  try {
+    const existingCounter = await Counter.findById(section);
+    if (existingCounter) return;
+
+    const lastStudent = await Student.findOne({ section })
+      .sort({ registrationNumber: -1 })
+      .select('registrationNumber')
+      .lean();
+
+    let sequenceValue = 0;
+    const config = REGISTRATION_CONFIG[section];
+
+    if (lastStudent) {
+      const numericPart = lastStudent.registrationNumber.replace(/^[A-Z]/, '');
+      const lastNumber = parseInt(numericPart, 10);
+      sequenceValue = lastNumber - config.start + 1;
+    }
+
+    await Counter.create({ _id: section, sequence_value: sequenceValue });
+  } catch (error) {
+    // Non-fatal: proceed with registration number generation
+    console.error(`Error initializing counter for ${section}:`, error);
+  }
+};
+
+// Utility: get next registration number atomically using counter
+const getNextRegistrationNumber = async (section) => {
+  try {
+    const config = REGISTRATION_CONFIG[section];
+    if (!config) throw new Error(`Invalid section: ${section}`);
+
+    await initializeCounterForSection(section);
+
+    const counter = await Counter.findOneAndUpdate(
+      { _id: section },
+      { $inc: { sequence_value: 1 } },
+      { new: true, upsert: true }
+    );
+
+    const registrationNumber = config.start + counter.sequence_value - 1;
+    if (registrationNumber > 259999) {
+      throw new Error(
+        `Registration number limit exceeded for section ${section}. Maximum 10,000 students allowed per section.`
+      );
+    }
+
+    return `${config.prefix}${registrationNumber.toString().padStart(6, '0')}`;
+  } catch (error) {
+    console.error('Error generating registration number:', error);
+    throw new Error(`Failed to generate registration number for section ${section}: ${error.message}`);
+  }
+};
+
+// @desc    Admin: Add new student to a specific institution
+// @route   POST /api/admin/students/add
+// @access  Private (Admin)
+const addStudentAdmin = async (req, res) => {
+  try {
+    const { institutionId, name, place, section, subject1, subject2 } = req.body;
+
+    // Validate institutionId
+    const mongoose = require('mongoose');
+    if (!institutionId || !mongoose.Types.ObjectId.isValid(institutionId)) {
+      return res.status(400).json({ success: false, message: 'Valid institutionId is required' });
+    }
+
+    // Ensure institution exists
+    const institution = await Institution.findById(institutionId);
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found' });
+    }
+
+    // Validate required fields
+    if (!name || !place || !section || !subject1 || !subject2) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+
+    // Validate section
+    if (!SUBJECTS[section]) {
+      return res.status(400).json({ success: false, message: 'Invalid section' });
+    }
+
+    // Validate subjects against allowed list for section
+    const availableSubjects = SUBJECTS[section];
+    const subject1Valid = availableSubjects.subject1.some(
+      (s) => s.code === subject1.code && s.name === subject1.name && s.category === 1
+    );
+    const subject2Valid = availableSubjects.subject2.some(
+      (s) => s.code === subject2.code && s.name === subject2.name && s.category === 2
+    );
+
+    if (!subject1Valid) {
+      return res.status(400).json({ success: false, message: 'Invalid subject1. Must select from Subject 1 category' });
+    }
+    if (!subject2Valid) {
+      return res.status(400).json({ success: false, message: 'Invalid subject2. Must select from Subject 2 category' });
+    }
+    if (subject1.code === subject2.code) {
+      return res.status(400).json({ success: false, message: 'Subject 1 and Subject 2 must be different' });
+    }
+
+    const selectedSubject1 = availableSubjects.subject1.find((s) => s.code === subject1.code);
+    const selectedSubject2 = availableSubjects.subject2.find((s) => s.code === subject2.code);
+
+    // Create student with retry handling for counter reconciliation
+    let student;
+    const maxRetries = 20;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const registrationNumber = await getNextRegistrationNumber(section);
+        student = new Student({
+          institutionId,
+          registrationNumber,
+          name,
+          place,
+          section,
+          subject1: {
+            code: selectedSubject1.code,
+            name: selectedSubject1.name,
+            category: selectedSubject1.category,
+          },
+          subject2: {
+            code: selectedSubject2.code,
+            name: selectedSubject2.name,
+            category: selectedSubject2.category,
+          },
+        });
+        await student.save();
+        break;
+      } catch (saveError) {
+        if (saveError && saveError.code === 11000 && saveError.keyPattern?.registrationNumber) {
+          // Reconcile counter to max existing registration number for the section
+          try {
+            const agg = await Student.aggregate([
+              { $match: { section } },
+              { $project: { num: { $toInt: { $substr: ["$registrationNumber", 1, 6] } } } },
+              { $group: { _id: null, maxNum: { $max: "$num" } } },
+            ]).allowDiskUse(true);
+
+            if (agg && agg.length > 0 && agg[0].maxNum) {
+              const lastNumber = agg[0].maxNum;
+              const desiredSequence = lastNumber - REGISTRATION_CONFIG[section].start + 1;
+              if (desiredSequence > 0) {
+                await Counter.findOneAndUpdate(
+                  { _id: section },
+                  { $max: { sequence_value: desiredSequence } },
+                  { upsert: true }
+                );
+              }
+            }
+          } catch (reconError) {
+            console.error('Error during counter reconciliation:', reconError);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
+          continue;
+        }
+        throw saveError;
+      }
+    }
+
+    if (!student) {
+      throw new Error('Unable to generate unique registration number after multiple attempts. Please try again.');
+    }
+
+    await student.populate('institutionId', 'name place district');
+    return res.status(201).json({
+      success: true,
+      message: 'Student added successfully',
+      data: { student },
+    });
+  } catch (error) {
+    console.error('Admin add student error:', error);
+    if (error.code === 11000 && error.keyPattern?.registrationNumber) {
+      return res.status(400).json({ success: false, message: 'Registration number conflict. Please try again.' });
+    }
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map((err) => err.message),
+      });
+    }
+    return res.status(400).json({ success: false, message: error.message || 'Failed to add student' });
+  }
+};
+
 // @desc    Edit institution
 // @route   PUT /api/admin/institutions/:id
 // @access  Private (Admin)
@@ -817,5 +1007,6 @@ module.exports = {
   deleteStudent,
   getDashboardStats,
   updateSettings,
-  getSettings
+  getSettings,
+  addStudentAdmin
 };
